@@ -1,0 +1,6 @@
+streamlit
+reportlab
+requests
+python-docx
+pdfplumber
+google-generativeai

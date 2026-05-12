@@ -1,0 +1,17 @@
+# Streamlit
+.streamlit/
+static/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Project specific
+exports/*.pdf
+.DS_Store
+.env
