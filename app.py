@@ -17,15 +17,12 @@ from io import BytesIO
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Hệ Thống Tạo Đề Thi Thông Minh", layout="wide")
 
-# CSS CỰC MẠNH ĐỂ SỬA LỖI ICON VÀ CHỈNH FONT
 st.markdown("""
     <style>
-        /* Chỉ áp dụng Roboto cho các thẻ văn bản cụ thể, loại trừ tuyệt đối các thẻ chứa icon của Streamlit */
         html, body, p, div:not([class*="st-emotion-cache"]) > span { 
             font-family: 'Roboto', sans-serif !important; 
         }
-        /* Bảo vệ icon Streamlit không bị ghi đè font */
-        .st-emotion-cache-16idsys p, .st-emotion-cache-16idsys span, [data-testid="stExpander"] svg, [data-testid="stExpander"] i {
+        .st-emotion-cache-16idsys p, .st-emotion-cache-16idsys span, [data-testid="stExpander"] svg {
             font-family: inherit !important;
         }
         .notranslate { translate: no !important; }
@@ -54,23 +51,73 @@ if os.path.exists(FONT_PATH):
     PDF_FONT = "Roboto"
 else: PDF_FONT = "Helvetica"
 
-# --- MOCK DATA ---
+# --- REAL QUESTIONS DATABASE ---
 GRADES = [f"Lớp {i}" for i in range(1, 13)]
 SEMESTERS = ["Học kỳ 1", "Học kỳ 2"]
 SUBJECTS = ["Tiếng Anh", "Toán", "Ngữ văn"]
 
-# Tạo thêm nhiều câu hỏi giả lập để test số lượng lớn
-def get_mock_db(subject):
-    mc = []
-    for i in range(1, 51):
-        mc.append({"question": f"Câu hỏi trắc nghiệm {i} môn {subject}", "options": ["Phương án A", "Phương án B", "Phương án C", "Phương án D"], "answer": "Phương án A"})
-    es = []
-    for i in range(1, 21):
-        es.append({"question": f"Câu hỏi tự luận {i} môn {subject}", "answer": f"Gợi ý đáp án cho câu {i}"})
-    return {"Multiple Choice": mc, "Essay": es}
+# Hàm tạo ngân hàng câu hỏi thật (tránh chung chung)
+def get_real_questions(subject, grade_idx):
+    if subject == "Tiếng Anh":
+        return {
+            "Multiple Choice": [
+                {"question": "How ______ oranges are there in the fridge?", "options": ["many", "much", "long", "far"], "answer": "many", "translation": "Có bao nhiêu quả cam trong tủ lạnh?"},
+                {"question": "She ______ to music every evening.", "options": ["listen", "listens", "listening", "listened"], "answer": "listens", "translation": "Cô ấy nghe nhạc mỗi tối."},
+                {"question": "What is the capital of Vietnam?", "options": ["Hue", "Da Nang", "Hanoi", "Ho Chi Minh City"], "answer": "Hanoi", "translation": "Thủ đô của Việt Nam là gì?"},
+                {"question": "I ______ my homework at the moment.", "options": ["do", "does", "am doing", "did"], "answer": "am doing", "translation": "Tôi đang làm bài tập về nhà ngay lúc này."},
+                {"question": "The book is ______ the table.", "options": ["in", "on", "at", "under"], "answer": "on", "translation": "Cuốn sách ở trên bàn."},
+                {"question": "Choose the word with different stress: 'Teacher', 'Doctor', 'Advice', 'Student'", "options": ["Teacher", "Doctor", "Advice", "Student"], "answer": "Advice", "translation": "Chọn từ có trọng âm khác."},
+                {"question": "They ______ to the zoo last Sunday.", "options": ["go", "goes", "went", "going"], "answer": "went", "translation": "Họ đã đi sở thú vào chủ nhật tuần trước."},
+                {"question": "If it rains, I ______ an umbrella.", "options": ["take", "takes", "will take", "took"], "answer": "will take", "translation": "Nếu trời mưa, tôi sẽ mang theo ô."},
+                {"question": "My father is a ______. He works in a hospital.", "options": ["teacher", "farmer", "doctor", "driver"], "answer": "doctor", "translation": "Bố tôi là bác sĩ. Ông ấy làm việc ở bệnh viện."},
+                {"question": "How ______ is a bowl of beef noodles?", "options": ["many", "much", "often", "long"], "answer": "much", "translation": "Một bát phở bò giá bao nhiêu?"}
+            ],
+            "Essay": [
+                {"question": "Write a paragraph (50 words) about your daily routine.", "answer": "Students should mention waking up, eating breakfast, going to school...", "translation": "Viết đoạn văn về thói quen hàng ngày."},
+                {"question": "Why is learning English important for your future?", "answer": "Communication, job opportunities, information access.", "translation": "Tại sao học tiếng Anh lại quan trọng cho tương lai?"}
+            ]
+        }
+    elif subject == "Toán":
+        level = grade_idx + 1
+        return {
+            "Multiple Choice": [
+                {"question": f"Kết quả của phép tính {15*level} + {25*level} là:", "options": [f"{40*level-5}", f"{40*level}", f"{40*level+5}", f"{40*level+10}"], "answer": f"{40*level}"},
+                {"question": f"Tìm x, biết x - {10*level} = {50*level}:", "options": [f"{40*level}", f"{60*level}", f"{70*level}", f"{50*level}"], "answer": f"{60*level}"},
+                {"question": "Số nào sau đây là số nguyên tố?", "options": ["4", "9", "15", "17"], "answer": "17"},
+                {"question": "Diện tích hình chữ nhật có chiều dài 10cm, chiều rộng 5cm là:", "options": ["15cm2", "50cm2", "30cm2", "25cm2"], "answer": "50cm2"},
+                {"question": "1 giờ 15 phút bằng bao nhiêu phút?", "options": ["65 phút", "75 phút", "85 phút", "95 phút"], "answer": "75 phút"},
+                {"question": "Số lớn nhất có 3 chữ số khác nhau là:", "options": ["999", "987", "900", "978"], "answer": "987"},
+                {"question": "Căn bậc hai của 144 là:", "options": ["10", "11", "12", "14"], "answer": "12"},
+                {"question": f"Giá trị của {level} x 9 là:", "options": [f"{level*8}", f"{level*9}", f"{level*10}", f"{level*7}"], "answer": f"{level*9}"},
+                {"question": "Phân số nào lớn hơn 1?", "options": ["3/4", "5/5", "7/6", "1/2"], "answer": "7/6"},
+                {"question": "Hình nào có 3 cạnh?", "options": ["Hình vuông", "Hình tròn", "Hình tam giác", "Hình thoi"], "answer": "Hình tam giác"}
+            ],
+            "Essay": [
+                {"question": "Giải bài toán: Một cửa hàng có 200kg gạo, buổi sáng bán được 1/4 số gạo. Hỏi cửa hàng còn lại bao nhiêu kg?", "answer": "Số gạo bán: 200/4 = 50kg. Còn lại: 200 - 50 = 150kg."},
+                {"question": "Tính diện tích hình thang có đáy lớn 10cm, đáy nhỏ 6cm và chiều cao 5cm.", "answer": "S = (10+6)*5/2 = 40cm2."}
+            ]
+        }
+    else: # Ngữ văn
+        return {
+            "Multiple Choice": [
+                {"question": "Tác giả của tác phẩm 'Truyện Kiều' là ai?", "options": ["Nguyễn Khuyến", "Nguyễn Du", "Nguyễn Trãi", "Chu Văn An"], "answer": "Nguyễn Du"},
+                {"question": "Câu 'Lá ơi! Hãy về với đất' sử dụng biện pháp nghệ thuật gì?", "options": ["So sánh", "Ẩn dụ", "Nhân hóa", "Hoán dụ"], "answer": "Nhân hóa"},
+                {"question": "Tác phẩm 'Lão Hạc' của Nam Cao thuộc thể loại gì?", "options": ["Tiểu thuyết", "Truyện ngắn", "Tùy bút", "Hồi ký"], "answer": "Truyện ngắn"},
+                {"question": "Nhân vật chính trong truyện 'Dế Mèn phiêu lưu ký' là ai?", "options": ["Dế Choắt", "Dế Mèn", "Chị Cốc", "Dế Trũi"], "answer": "Dế Mèn"},
+                {"question": "Sông Hương chảy qua thành phố nào của nước ta?", "options": ["Hà Nội", "Huế", "Đà Nẵng", "Cần Thơ"], "answer": "Huế"},
+                {"question": "Từ nào sau đây viết đúng chính tả?", "options": ["Xắp sếp", "Sắp sếp", "Sắp xếp", "Xắp xếp"], "answer": "Sắp xếp"},
+                {"question": "Thành ngữ 'Học đi đôi với hành' nhấn mạnh điều gì?", "options": ["Chỉ học lý thuyết", "Chỉ làm thực tế", "Học phải áp dụng", "Không cần học"], "answer": "Học phải áp dụng"},
+                {"question": "Ai là người được mệnh danh là 'Tiên thơ'?", "options": ["Lý Bạch", "Đỗ Phủ", "Bạch Cư Dị", "Vương Duy"], "answer": "Lý Bạch"},
+                {"question": "Tác phẩm 'Tắt đèn' của tác giả nào?", "options": ["Nam Cao", "Ngô Tất Tố", "Vũ Trọng Phụng", "Nguyên Hồng"], "answer": "Ngô Tất Tố"},
+                {"question": "Câu 'Ôi! Đẹp quá!' thuộc kiểu câu gì?", "options": ["Câu kể", "Câu hỏi", "Câu cảm", "Câu cầu khiến"], "answer": "Câu cảm"}
+            ],
+            "Essay": [
+                {"question": "Phân tích nhân vật Lão Hạc trong truyện ngắn cùng tên của Nam Cao.", "answer": "Lòng tự trọng, tình thương con, số phận bi thảm của người nông dân."},
+                {"question": "Viết đoạn văn ngắn nêu cảm nhận của em về tình mẫu tử.", "answer": "Sự hy sinh vô điều kiện, tình yêu thương bao la của mẹ."}
+            ]
+        }
 
-# Cập nhật DB thực tế (mình sẽ dùng hàm tạo câu hỏi mẫu để bạn có đủ số lượng tạo 30-40 câu)
-QUESTIONS_DB = {sub: {grade: get_mock_db(sub) for grade in GRADES} for sub in SUBJECTS}
+QUESTIONS_DB = {sub: {grade: get_real_questions(sub, idx) for idx, grade in enumerate(GRADES)} for sub in SUBJECTS}
 
 # --- FUNCTIONS ---
 def extract_text_from_file(uploaded_file):
@@ -88,7 +135,7 @@ def ai_process_questions(text, api_key, num_q):
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         target_model = "models/gemini-1.5-flash" if "models/gemini-1.5-flash" in available_models else available_models[0]
         model = genai.GenerativeModel(target_model)
-        prompt = f"Bóc tách đúng {num_q} câu trắc nghiệm và {int(num_q/2)} câu tự luận từ văn bản này. Trả về JSON duy nhất:\n{text}"
+        prompt = f"Bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận từ văn bản này. Trả về JSON duy nhất (question, options, answer):\n{text}"
         response = model.generate_content(prompt)
         return json.loads(response.text.strip().replace("```json", "").replace("```", ""))
     except Exception as e:
@@ -97,15 +144,8 @@ def ai_process_questions(text, api_key, num_q):
 def generate_test(subject, grade, test_type, mc_ratio, duration, total_q, custom_db=None):
     db = custom_db if custom_db else QUESTIONS_DB[subject][grade]
     mc_pool, essay_pool = db["Multiple Choice"], db["Essay"]
-    
-    if test_type == "Trắc nghiệm":
-        num_mc_q, num_essay_q = total_q, 0
-    elif test_type == "Tự luận":
-        num_mc_q, num_essay_q = 0, min(total_q, 10) # Tự luận giới hạn bớt để tránh file quá dài
-    else:
-        num_mc_q = int(total_q * (mc_ratio/100))
-        num_essay_q = total_q - num_mc_q
-        
+    num_mc_q = total_q if test_type == "Trắc nghiệm" else (0 if test_type == "Tự luận" else int(total_q * (mc_ratio/100)))
+    num_essay_q = total_q - num_mc_q if test_type == "Kết hợp" else (0 if test_type == "Trắc nghiệm" else min(total_q, len(essay_pool)))
     return random.sample(mc_pool, min(len(mc_pool), num_mc_q)), random.sample(essay_pool, min(len(essay_pool), num_essay_q))
 
 def export_pdf(subject, grade, semester, test_type, duration, mc_qs, essay_qs):
@@ -156,12 +196,15 @@ with st.expander("⚙️ CẤU HÌNH ĐỀ THI (Nhấn để mở/đóng)", expa
 
 tab_bank, tab_ai, tab_history = st.tabs(["📄 Tạo từ ngân hàng", "📁 Tạo từ đề cương (AI)", "📜 Lịch sử file"])
 
-with tab_bank:
-    if st.button("🚀 TẠO ĐỀ THI NGAY", use_container_width=True):
+if st.button("🚀 TẠO ĐỀ THI NGAY", use_container_width=True, key="main_gen_btn"):
+    if st.session_state.get('active_tab') == "📁 Tạo từ đề cương (AI)":
+        # Handled inside tab_ai if necessary
+        pass
+    else:
         mc, es = generate_test(subject, grade, test_type, mc_ratio, duration, total_q)
         pdf, name = export_pdf(subject, grade, semester, test_type, duration, mc, es)
         st.session_state['test'] = {"sub": subject, "gr": grade, "sem": semester, "mc": mc, "es": es, "pdf": pdf, "name": name}
-        st.success(f"Đã tạo đề thi {total_q} câu thành công!")
+        st.success(f"Đã tạo đề thi thành công!")
 
 with tab_ai:
     st.write("Tải file lên để AI bóc tách câu hỏi và tạo đề.")
