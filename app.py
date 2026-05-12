@@ -144,9 +144,27 @@ def ai_process_questions(text, api_key, num_q):
 def generate_test(subject, grade, test_type, mc_ratio, duration, total_q, custom_db=None):
     db = custom_db if custom_db else QUESTIONS_DB[subject][grade]
     mc_pool, essay_pool = db["Multiple Choice"], db["Essay"]
-    num_mc_q = total_q if test_type == "Trắc nghiệm" else (0 if test_type == "Tự luận" else int(total_q * (mc_ratio/100)))
-    num_essay_q = total_q - num_mc_q if test_type == "Kết hợp" else (0 if test_type == "Trắc nghiệm" else min(total_q, len(essay_pool)))
-    return random.sample(mc_pool, min(len(mc_pool), num_mc_q)), random.sample(essay_pool, min(len(essay_pool), num_essay_q))
+    
+    if test_type == "Trắc nghiệm":
+        num_mc_q, num_essay_q = total_q, 0
+    elif test_type == "Tự luận":
+        num_mc_q, num_essay_q = 0, total_q
+    else:
+        num_mc_q = int(total_q * (mc_ratio/100))
+        num_essay_q = total_q - num_mc_q
+    
+    # Đảm bảo lấy ĐÚNG số lượng câu giáo viên yêu cầu (cho phép lấy lặp nếu pool thiếu)
+    if len(mc_pool) >= num_mc_q:
+        selected_mc = random.sample(mc_pool, num_mc_q)
+    else:
+        selected_mc = random.choices(mc_pool, k=num_mc_q)
+        
+    if len(essay_pool) >= num_essay_q:
+        selected_essay = random.sample(essay_pool, num_essay_q)
+    else:
+        selected_essay = random.choices(essay_pool, k=num_essay_q) if essay_pool else []
+        
+    return selected_mc, selected_essay
 
 def export_pdf(subject, grade, semester, test_type, duration, mc_qs, essay_qs):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
