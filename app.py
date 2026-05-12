@@ -17,14 +17,12 @@ from io import BytesIO
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Hệ Thống Tạo Đề Thi Thông Minh", layout="wide")
 
-# Chèn CSS và JS để ép trình duyệt KHÔNG ĐƯỢC DỊCH
 st.markdown("""
     <style>
         html, body, [data-testid="stWidgetLabel"], .stText, p, span:not(.material-icons) { 
             font-family: 'Roboto', sans-serif !important; 
         }
         .notranslate { translate: no !important; }
-        /* Tối ưu cho mobile */
         @media (max-width: 768px) {
             .stMainBlockContainer { padding-top: 1rem !important; }
         }
@@ -55,35 +53,74 @@ GRADES = [f"Lớp {i}" for i in range(1, 13)]
 SEMESTERS = ["Học kỳ 1", "Học kỳ 2"]
 SUBJECTS = ["Tiếng Anh", "Toán", "Ngữ văn"]
 
+# Ngân hàng câu hỏi mẫu đầy đủ
 QUESTIONS_DB = {
     "Tiếng Anh": {
         f"Lớp {i}": {
             "Multiple Choice": [
-                {"question": "Choose the word that has a different stress pattern.", "translation": "Chọn từ có trọng âm khác với các từ còn lại.", "options": ["Doctor", "Student", "Advice", "Teacher"], "answer": "Advice"},
-                {"question": "I ______ a student in this school last year.", "translation": "Tôi ______ một học sinh ở trường này vào năm ngoái.", "options": ["am", "is", "was", "were"], "answer": "was"}
+                {"question": "Choose the word that has a different stress pattern.", "translation": "Chọn từ có trọng âm khác.", "options": ["Doctor", "Student", "Advice", "Teacher"], "answer": "Advice"},
+                {"question": "I ______ a student in this school last year.", "translation": "Tôi là học sinh năm ngoái.", "options": ["am", "is", "was", "were"], "answer": "was"},
+                {"question": "What is the synonym of 'beautiful'?", "translation": "Từ đồng nghĩa của 'beautiful'?", "options": ["Ugly", "Pretty", "Bad", "Smart"], "answer": "Pretty"},
+                {"question": "She ______ to school by bus every day.", "translation": "Cô ấy đi học bằng xe buýt.", "options": ["go", "goes", "going", "went"], "answer": "goes"},
+                {"question": "Which one is a fruit?", "translation": "Cái nào là trái cây?", "options": ["Carrot", "Potato", "Apple", "Onion"], "answer": "Apple"},
+                {"question": "They ______ dinner when the phone rang.", "translation": "Họ đang ăn tối thì điện thoại reo.", "options": ["eat", "ate", "were eating", "are eating"], "answer": "were eating"},
+                {"question": "How ______ oranges are there?", "translation": "Có bao nhiêu quả cam?", "options": ["many", "much", "long", "far"], "answer": "many"},
+                {"question": "The sun ______ in the East.", "translation": "Mặt trời mọc ở hướng Đông.", "options": ["rise", "rises", "rising", "rose"], "answer": "rises"},
+                {"question": "If it rains, we ______ at home.", "translation": "Nếu trời mưa, chúng tôi sẽ ở nhà.", "options": ["stay", "will stay", "stayed", "would stay"], "answer": "will stay"},
+                {"question": "This is the ______ book I have read.", "translation": "Đây là cuốn sách hay nhất tôi từng đọc.", "options": ["good", "better", "best", "goodest"], "answer": "best"}
             ],
             "Essay": [
-                {"question": "Write a short paragraph about your family.", "translation": "Viết đoạn văn về gia đình.", "answer": "Suggested answer..."}
+                {"question": "Write 50 words about your family.", "translation": "Viết 50 từ về gia đình.", "answer": "Suggested family essay..."},
+                {"question": "Benefits of learning English?", "translation": "Lợi ích học tiếng Anh?", "answer": "Communication, career..."},
+                {"question": "Describe your favorite hobby.", "translation": "Kể về sở thích của bạn.", "answer": "Reading, sports, etc."},
+                {"question": "What is your dream job?", "translation": "Công việc mơ ước của bạn là gì?", "answer": "Doctor, teacher, engineer..."},
+                {"question": "Talk about your best friend.", "translation": "Kể về người bạn thân nhất.", "answer": "Name, appearance, personality..."}
             ]
         } for i in range(1, 13)
     },
     "Toán": {
         f"Lớp {i}": {
             "Multiple Choice": [
-                {"question": "25 + 75 = ?", "options": ["90", "100", "110", "120"], "answer": "100"}
+                {"question": "25 + 75 = ?", "options": ["90", "100", "110", "120"], "answer": "100"},
+                {"question": "x - 15 = 20. Tìm x?", "options": ["5", "25", "35", "45"], "answer": "35"},
+                {"question": "Số nào là số nguyên tố?", "options": ["4", "6", "8", "7"], "answer": "7"},
+                {"question": "Diện tích hình chữ nhật (5m x 3m)?", "options": ["8", "15", "20", "25"], "answer": "15"},
+                {"question": "1 giờ có bao nhiêu giây?", "options": ["60", "360", "3600", "120"], "answer": "3600"},
+                {"question": "Số lớn nhất có 2 chữ số?", "options": ["10", "90", "99", "100"], "answer": "99"},
+                {"question": "Căn bậc hai của 144?", "options": ["10", "11", "12", "13"], "answer": "12"},
+                {"question": "Số 0 là số chẵn hay số lẻ?", "options": ["Chẵn", "Lẻ", "Cả hai", "Không phải"], "answer": "Chẵn"},
+                {"question": "1km bằng bao nhiêu mét?", "options": ["10", "100", "1000", "10000"], "answer": "1000"},
+                {"question": "Hình nào có 4 cạnh bằng nhau?", "options": ["Tam giác", "Tròn", "Vuông", "Thang"], "answer": "Vuông"}
             ],
             "Essay": [
-                {"question": "Giải toán đố...", "answer": "Lời giải..."}
+                {"question": "Tính 2/5 của 100kg gạo.", "answer": "40kg"},
+                {"question": "Chứng minh tổng 3 góc tam giác = 180.", "answer": "Dựa trên tính chất song song..."},
+                {"question": "Giải hệ phương trình bậc nhất 2 ẩn.", "answer": "Sử dụng phương pháp thế hoặc cộng..."},
+                {"question": "Tính thể tích hình lập phương cạnh 3cm.", "answer": "3^3 = 27 cm3"},
+                {"question": "Phân tích số 120 ra thừa số nguyên tố.", "answer": "2^3 * 3 * 5"}
             ]
         } for i in range(1, 13)
     },
     "Ngữ văn": {
         f"Lớp {i}": {
             "Multiple Choice": [
-                {"question": "Tác giả Truyện Kiều?", "options": ["Nguyễn Khuyến", "Nguyễn Du", "Nguyễn Trãi", "Chu Văn An"], "answer": "Nguyễn Du"}
+                {"question": "Tác giả Truyện Kiều?", "options": ["Nguyễn Khuyến", "Nguyễn Du", "Nguyễn Trãi", "Chu Văn An"], "answer": "Nguyễn Du"},
+                {"question": "Biện pháp: 'Lá ơi! Hãy về với đất'?", "options": ["So sánh", "Ẩn dụ", "Nhân hóa", "Hoán dụ"], "answer": "Nhân hóa"},
+                {"question": "Thể loại của 'Lão Hạc'?", "options": ["Tiểu thuyết", "Truyện ngắn", "Tùy bút", "Hồi ký"], "answer": "Truyện ngắn"},
+                {"question": "Tác giả bài 'Đoàn thuyền đánh cá'?", "options": ["Huy Cận", "Xuân Diệu", "Chế Lan Viên", "Tố Hữu"], "answer": "Huy Cận"},
+                {"question": "Thành ngữ 'Học đi đôi với hành'?", "options": ["Lý thuyết", "Thực tế", "Áp dụng", "Bỏ học"], "answer": "Áp dụng"},
+                {"question": "Sông Hương nằm ở tỉnh nào?", "options": ["Quảng Bình", "Quảng Trị", "Thừa Thiên Huế", "Đà Nẵng"], "answer": "Thừa Thiên Huế"},
+                {"question": "Nhân vật chính trong 'Dế Mèn phiêu lưu ký'?", "options": ["Dế Choắt", "Dế Mèn", "Chị Cốc", "Dế Trũi"], "answer": "Dế Mèn"},
+                {"question": "Từ nào viết đúng chính tả?", "options": ["Xắp sếp", "Sắp sếp", "Sắp xếp", "Xắp xếp"], "answer": "Sắp xếp"},
+                {"question": "Bài thơ 'Viếng Lăng Bác' của ai?", "options": ["Viễn Phương", "Thanh Hải", "Hữu Thỉnh", "Phạm Tiến Duật"], "answer": "Viễn Phương"},
+                {"question": "Tác phẩm 'Tắt đèn' của tác giả nào?", "options": ["Nam Cao", "Ngô Tất Tố", "Vũ Trọng Phụng", "Nguyên Hồng"], "answer": "Ngô Tất Tố"}
             ],
             "Essay": [
-                {"question": "Phân tích nhân vật...", "answer": "Gợi ý..."}
+                {"question": "Phân tích nhân vật Lão Hạc.", "answer": "Lòng tự trọng, tình cha con..."},
+                {"question": "Nêu cảm nghĩ về tình mẫu tử.", "answer": "Tình yêu bao la, sự hy sinh..."},
+                {"question": "Phân tích bài thơ 'Đồng chí'.", "answer": "Tình đồng đội, hoàn cảnh khó khăn..."},
+                {"question": "Ý nghĩa của truyện 'Vợ nhặt'.", "answer": "Sức sống mãnh liệt của con người..."},
+                {"question": "Bàn về đức tính khiêm tốn.", "answer": "Sự học hỏi, tôn trọng người khác..."}
             ]
         } for i in range(1, 13)
     }
@@ -144,13 +181,12 @@ def export_pdf(subject, grade, semester, test_type, duration, mc_qs, essay_qs):
             p.setFont(PDF_FONT, 11); p.drawString(ml, y, f"Câu {len(mc_qs)+i+1}: {q['question']}"); y -= 1.2*cm
             p.line(ml+0.5*cm, y, width-mr, y); y -= 0.8*cm
     p.setFont(PDF_FONT, 10); p.drawString(ml, mb-0.5*cm, "Bản quyền: Tô Hoàng Long_PC")
-    p.showPage(); header(p, "ĐÁP ÁN") # Simple Answer Key
+    p.showPage(); header(p, "ĐÁP ÁN")
     p.save(); f = open(filepath, "wb"); f.write(buffer.getvalue()); f.close(); buffer.seek(0); return buffer, filename
 
 # --- MAIN UI ---
 st.title("🎓 Hệ Thống Tạo Đề Thi Thông Minh")
 
-# Move Config to Main Page for Mobile
 with st.expander("⚙️ CẤU HÌNH ĐỀ THI (Nhấn để mở/đóng)", expanded=True):
     col1, col2, col3 = st.columns(3)
     with col1:
