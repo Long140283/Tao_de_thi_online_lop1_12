@@ -8,6 +8,9 @@ import pdfplumber
 import google.generativeai as genai
 import time
 from PIL import Image
+import requests
+from bs4 import BeautifulSoup
+from youtube_transcript_api import YouTubeTranscriptApi
 from datetime import datetime, timedelta
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -147,6 +150,30 @@ def extract_text_from_file(uploaded_file):
         with pdfplumber.open(uploaded_file) as pdf:
             return "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
     return uploaded_file.read().decode("utf-8")
+
+def extract_text_from_url(url):
+    try:
+        if "youtube.com" in url or "youtu.be" in url:
+            # Extract video ID
+            if "v=" in url:
+                video_id = url.split("v=")[1].split("&")[0]
+            else:
+                video_id = url.split("/")[-1]
+            
+            try:
+                transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['vi', 'en'])
+                return " ".join([t['text'] for t in transcript])
+            except:
+                return "Không tìm thấy phụ đề cho video này. Vui lòng chọn video có phụ đề."
+        else:
+            headers = {"User-Agent": "Mozilla/5.0"}
+            response = requests.get(url, headers=headers, timeout=10)
+            response.encoding = 'utf-8'
+            soup = BeautifulSoup(response.text, 'html.parser')
+            for s in soup(["script", "style"]): s.extract()
+            return soup.get_text(separator=' ', strip=True)[:10000] # Limit to 10k chars
+    except Exception as e:
+        return f"Lỗi trích xuất link: {str(e)}"
 
 def ai_process_questions(input_data, api_key, num_q):
     try:
@@ -339,7 +366,7 @@ else:
                 current_questions = generate_test(subj, grd, t_type, ratio, num_q)
         
         elif source == "AI (File/Camera)":
-            tab_file, tab_cam = st.tabs(["📁 Tải file", "📸 Chụp ảnh"])
+            tab_file, tab_cam, tab_link = st.tabs(["📁 Tải file", "📸 Chụp ảnh", "🔗 Dán Link"])
             ai_data = None
             with tab_file:
                 up_file = st.file_uploader("Tải lên file (Word/PDF):", type=["docx", "pdf"])
@@ -347,6 +374,9 @@ else:
             with tab_cam:
                 cam_img = st.camera_input("Chụp ảnh đề cương/sách")
                 if cam_img: ai_data = Image.open(cam_img)
+            with tab_link:
+                url_input = st.text_input("Dán link Website hoặc YouTube:")
+                if url_input: ai_data = extract_text_from_url(url_input)
             
             if st.button("🔍 AI Bóc tách dữ liệu"):
                 if ai_data:
