@@ -178,7 +178,7 @@ def extract_text_from_url(url):
 def ai_process_questions(input_data, api_key, num_q):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-latest")
         prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'mc': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'es': [{{'question': '...', 'answer': '...'}}]}}"
         
         response = model.generate_content([prompt, input_data])
@@ -190,7 +190,7 @@ def ai_process_questions(input_data, api_key, num_q):
 def ai_grade_essay(question, student_answer, reference_answer):
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-latest")
         prompt = f"Câu hỏi: {question}\nĐáp án mẫu: {reference_answer}\nBài làm học sinh: {student_answer}\n\nHãy chấm điểm bài làm này trên thang điểm 10. Trả về JSON: {{'score': float, 'comment': string}}"
         response = model.generate_content(prompt)
         content = response.text.strip().replace("```json", "").replace("```", "")
