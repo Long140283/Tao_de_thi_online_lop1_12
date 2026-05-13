@@ -66,7 +66,7 @@ st.markdown("""
 
 FONT_PATH = "Roboto-Regular.ttf"
 EXPORT_DIR = "exports"
-GEMINI_API_KEY = "AIzaSyBZ-LE1wTgDBiSt7-jDPpUqQaG6yqc_Svw"
+GEMINI_API_KEY = "AIzaSyA96WfZlWmGafQET2Jb0w-bQhh8gEACbeU"
 
 if not os.path.exists(EXPORT_DIR): os.makedirs(EXPORT_DIR)
 if os.path.exists(FONT_PATH):
