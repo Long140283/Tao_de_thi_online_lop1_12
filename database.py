@@ -139,6 +139,21 @@ def get_questions_from_folder(folder_id):
         all_es.extend(qs.get("es", [])); all_es.extend(qs.get("Essay", []))
     return {"Multiple Choice": all_mc, "Essay": all_es}
 
+def get_recent_submissions(limit=50):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT s.id, s.test_id, s.student_name, s.score, s.total_questions, s.submitted_at, t.grade, t.title, s.answers_json
+                 FROM submissions s
+                 JOIN tests t ON s.test_id = t.id
+                 ORDER BY s.submitted_at DESC
+                 LIMIT ?''', (limit,))
+    rows = c.fetchall()
+    conn.close()
+    return [{
+        "id": r[0], "test_id": r[1], "student_name": r[2], "score": r[3],
+        "total_q": r[4], "submitted_at": r[5], "grade": r[6], "test_title": r[7], "answers": json.loads(r[8])
+    } for r in rows]
+
 def update_submission_score(submission_id, new_score):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()

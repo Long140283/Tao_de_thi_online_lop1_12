@@ -453,34 +453,53 @@ else:
                     st.json(qs)
 
     with tab_results:
-        st.subheader("Danh sách kết quả học sinh")
-        test_id_input = st.text_input("Nhập Mã Đề Thi (Test ID) để xem kết quả:", placeholder="Ví dụ: a1b2c3d4")
-        if test_id_input:
-            results = db.get_submissions(test_id_input)
-            if results:
-                for res in results:
-                    with st.expander(f"👤 {res['student_name']} - Điểm: {res['score']:.2f}/{res['total_q']}"):
-                        st.write(f"⏰ Nộp lúc: {res['submitted_at']}")
-                        st.write("---")
-                        st.json(res['answers'])
-                        
-                        if st.button(f"🤖 Chấm điểm Tự luận bằng AI", key=f"ai_{res['id']}"):
-                            with st.spinner("AI đang chấm bài..."):
-                                test_info = db.get_test(test_id_input)
-                                total_ai_score = res['score'] # Start with current score (MC)
-                                
-                                for i, q in enumerate(test_info['questions']['es']):
-                                    ans = res['answers'].get(f"es_{i}")
-                                    if ans:
-                                        result = ai_grade_essay(q['question'], ans, q['answer'])
-                                        st.info(f"**Câu {i+1} (AI):** {result['score']}đ - {result['comment']}")
-                                        total_ai_score += result['score']
-                                
-                                db.update_submission_score(res['id'], total_ai_score)
-                                st.success(f"Đã cập nhật điểm tổng: {total_ai_score:.2f}")
-                                st.rerun()
-            else:
-                st.info("Chưa có học sinh nào nộp bài cho mã đề này.")
+        st.subheader("📊 Danh sách Kết quả Học sinh")
+        
+        # Search Box (Optional)
+        search_id = st.text_input("🔍 Tìm nhanh theo Mã đề (Test ID):", placeholder="Nhập mã đề để lọc...")
+        
+        # Get data
+        if search_id:
+            results = [r for r in db.get_recent_submissions(200) if r['test_id'] == search_id]
+        else:
+            results = db.get_recent_submissions(50)
+            
+        if results:
+            # Display headers
+            col_h1, col_h2, col_h3, col_h4 = st.columns([2, 1, 1, 2])
+            col_h1.write("**Tên học sinh**")
+            col_h2.write("**Lớp**")
+            col_h3.write("**Điểm**")
+            col_h4.write("**Ngày nộp**")
+            st.divider()
+            
+            for res in results:
+                with st.expander(f"👤 {res['student_name']} - {res['grade']} - {res['score']:.2f}/{res['total_q']}"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write(f"📌 **Mã đề:** `{res['test_id']}`")
+                        st.write(f"📝 **Tên đề:** {res['test_title']}")
+                    with c2:
+                        st.write(f"⏰ **Thời gian:** {res['submitted_at']}")
+                    
+                    st.write("---")
+                    st.json(res['answers'])
+                    
+                    if st.button(f"🤖 Chấm điểm Tự luận AI", key=f"ai_res_{res['id']}"):
+                        with st.spinner("AI đang chấm bài..."):
+                            test_info = db.get_test(res['test_id'])
+                            total_ai_score = res['score']
+                            for i, q in enumerate(test_info['questions']['es']):
+                                ans = res['answers'].get(f"es_{i}")
+                                if ans:
+                                    res_ai = ai_grade_essay(q['question'], ans, q['answer'])
+                                    st.info(f"**Câu {i+1} (AI):** {res_ai['score']}đ - {res_ai['comment']}")
+                                    total_ai_score += res_ai['score']
+                            db.update_submission_score(res['id'], total_ai_score)
+                            st.success(f"Đã cập nhật điểm: {total_ai_score:.2f}")
+                            st.rerun()
+        else:
+            st.info("Chưa có học sinh nào nộp bài.")
 
     with tab_history:
         st.subheader("Các tệp PDF đã tạo")
