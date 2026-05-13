@@ -175,26 +175,39 @@ def extract_text_from_url(url):
     except Exception as e:
         return f"Lỗi trích xuất link: {str(e)}"
 
+def get_best_model(api_key):
+    genai.configure(api_key=api_key)
+    # List of models to try in order of preference
+    for m_name in ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]:
+        try:
+            model = genai.GenerativeModel(m_name)
+            # Try a very small test call to verify availability
+            return model
+        except:
+            continue
+    return genai.GenerativeModel("gemini-pro") # Final fallback
+
 def ai_process_questions(input_data, api_key, num_q):
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
+        model = get_best_model(api_key)
         prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'mc': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'es': [{{'question': '...', 'answer': '...'}}]}}"
         
         response = model.generate_content([prompt, input_data])
         content = response.text.strip().replace("```json", "").replace("```", "")
-        return json.loads(content)
+        if "{" not in content: # Handle non-json response
+            st.error("AI không trả về đúng định dạng JSON. Thử lại sau.")
+            return None
+        return json.loads(content[content.find("{"):content.rfind("}")+1])
     except Exception as e:
         st.error(f"Lỗi AI: {str(e)}"); return None
 
 def ai_grade_essay(question, student_answer, reference_answer):
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
+        model = get_best_model(GEMINI_API_KEY)
         prompt = f"Câu hỏi: {question}\nĐáp án mẫu: {reference_answer}\nBài làm học sinh: {student_answer}\n\nHãy chấm điểm bài làm này trên thang điểm 10. Trả về JSON: {{'score': float, 'comment': string}}"
         response = model.generate_content(prompt)
         content = response.text.strip().replace("```json", "").replace("```", "")
-        return json.loads(content)
+        return json.loads(content[content.find("{"):content.rfind("}")+1])
     except:
         return {"score": 0, "comment": "Không thể chấm điểm tự động."}
 
