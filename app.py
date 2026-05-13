@@ -420,7 +420,7 @@ else:
                     title = f"Đề thi {info['subj']} - {info['grd']}"
                     t_id = db.save_test(title, info['subj'], info['grd'], q, info['dur'])
                     # Generate link
-                    base_url = "http://localhost:8501" # Default for local
+                    base_url = "https://taodethionlinelop112-whyhqwacwhqntfuikannwq.streamlit.app"
                     full_link = f"{base_url}/?test_id={t_id}"
                     
                     st.success("Đã lưu đề thi lên hệ thống!")
@@ -428,7 +428,7 @@ else:
                     st.code(t_id)
                     st.write("**Đường link chia sẻ cho học sinh:**")
                     st.code(full_link)
-                    st.info("💡 Lưu ý: Khi đưa lên mạng, hãy thay 'localhost:8501' bằng địa chỉ trang web của bạn.")
+                    st.info("💡 Link này đã được cấu hình sẵn cho trang web của bạn. Bạn chỉ cần copy và gửi cho học sinh.")
 
     with tab_bank_mgmt:
         st.subheader("📁 Quản lý Thư mục Câu hỏi")
