@@ -7,6 +7,7 @@ import docx
 import pdfplumber
 import google.generativeai as genai
 import time
+from PIL import Image
 from datetime import datetime, timedelta
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -147,12 +148,13 @@ def extract_text_from_file(uploaded_file):
             return "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
     return uploaded_file.read().decode("utf-8")
 
-def ai_process_questions(text, api_key, num_q):
+def ai_process_questions(input_data, api_key, num_q):
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")
-        prompt = f"Bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận từ văn bản này. Trả về JSON duy nhất (question, options, answer):\n{text}"
-        response = model.generate_content(prompt)
+        prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'mc': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'es': [{{'question': '...', 'answer': '...'}}]}}"
+        
+        response = model.generate_content([prompt, input_data])
         content = response.text.strip().replace("```json", "").replace("```", "")
         return json.loads(content)
     except Exception as e:
@@ -181,8 +183,21 @@ def generate_test(subject, grade, test_type, mc_ratio, total_q, custom_db=None):
         num_mc_q = int(total_q * (mc_ratio/100))
         num_essay_q = total_q - num_mc_q
     
-    selected_mc = random.sample(mc_pool, min(len(mc_pool), num_mc_q)) if mc_pool else []
-    selected_essay = random.sample(essay_pool, min(len(essay_pool), num_essay_q)) if essay_pool else []
+    if mc_pool:
+        if len(mc_pool) >= num_mc_q:
+            selected_mc = random.sample(mc_pool, num_mc_q)
+        else:
+            selected_mc = random.choices(mc_pool, k=num_mc_q)
+    else:
+        selected_mc = []
+
+    if essay_pool:
+        if len(essay_pool) >= num_essay_q:
+            selected_essay = random.sample(essay_pool, num_essay_q)
+        else:
+            selected_essay = random.choices(essay_pool, k=num_essay_q)
+    else:
+        selected_essay = []
     
     return {"mc": selected_mc, "es": selected_essay}
 
@@ -299,7 +314,7 @@ else:
     # --- TEACHER MODE ---
     st.title("🎓 Hệ Thống Quản Lý Thi Thông Minh")
     
-    tab_gen, tab_results, tab_history = st.tabs(["🚀 Tạo đề thi mới", "📊 Kết quả học sinh", "📜 Lịch sử PDF"])
+    tab_gen, tab_bank_mgmt, tab_results, tab_history = st.tabs(["🚀 Tạo đề thi mới", "📂 Quản lý Ngân hàng", "📊 Kết quả học sinh", "📜 Lịch sử PDF"])
     
     with tab_gen:
         with st.expander("⚙️ CẤU HÌNH ĐỀ THI", expanded=True):
@@ -315,25 +330,65 @@ else:
                 t_type = st.radio("Hình thức:", ["Trắc nghiệm", "Tự luận", "Kết hợp"])
                 ratio = st.slider("Tỉ lệ Trắc nghiệm (%)", 0, 100, 70) if t_type == "Kết hợp" else 70
 
-        tab_bank, tab_ai = st.tabs(["📄 Từ ngân hàng", "📁 Từ file đề cương (AI)"])
+        source = st.radio("Nguồn câu hỏi:", ["Ngân hàng hệ thống", "AI (File/Camera)", "Folder cá nhân"], horizontal=True)
         
         current_questions = None
         
-        with tab_bank:
-            if st.button("Tạo đề từ ngân hàng"):
+        if source == "Ngân hàng hệ thống":
+            if st.button("Tạo đề từ hệ thống"):
                 current_questions = generate_test(subj, grd, t_type, ratio, num_q)
         
-        with tab_ai:
-            up_file = st.file_uploader("Tải lên file (Word/PDF):", type=["docx", "pdf"])
-            if st.button("AI Bóc tách & Tạo đề"):
-                if up_file:
-                    with st.spinner("AI đang làm việc..."):
-                        txt = extract_text_from_file(up_file)
-                        custom = ai_process_questions(txt, GEMINI_API_KEY, num_q)
+        elif source == "AI (File/Camera)":
+            tab_file, tab_cam = st.tabs(["📁 Tải file", "📸 Chụp ảnh"])
+            ai_data = None
+            with tab_file:
+                up_file = st.file_uploader("Tải lên file (Word/PDF):", type=["docx", "pdf"])
+                if up_file: ai_data = extract_text_from_file(up_file)
+            with tab_cam:
+                cam_img = st.camera_input("Chụp ảnh đề cương/sách")
+                if cam_img: ai_data = Image.open(cam_img)
+            
+            if st.button("🔍 AI Bóc tách dữ liệu"):
+                if ai_data:
+                    with st.spinner("AI đang phân tích dữ liệu..."):
+                        custom = ai_process_questions(ai_data, GEMINI_API_KEY, num_q)
                         if custom:
-                            current_questions = generate_test(subj, grd, t_type, ratio, num_q, custom_db=custom)
+                            st.session_state['temp_ai_qs'] = custom
+                            st.success("Bóc tách thành công! Bạn có muốn lưu vào Folder không?")
+                else: st.error("Chưa có dữ liệu đầu vào!")
+            
+            if 'temp_ai_qs' in st.session_state:
+                st.write("### Câu hỏi vừa bóc tách:")
+                st.json(st.session_state['temp_ai_qs'])
+                
+                folders = db.get_folders()
+                if folders:
+                    f_names = [f['name'] for f in folders]
+                    sel_f = st.selectbox("Chọn Folder để lưu:", f_names)
+                    if st.button("💾 Lưu vào Folder & Tạo đề"):
+                        f_id = next(f['id'] for f in folders if f['name'] == sel_f)
+                        db.save_questions_to_folder(f_id, subj, grd, st.session_state['temp_ai_qs'])
+                        current_questions = generate_test(subj, grd, t_type, ratio, num_q, custom_db=st.session_state['temp_ai_qs'])
+                        st.success(f"Đã lưu vào folder {sel_f}!")
                 else:
-                    st.error("Hãy chọn file trước!")
+                    st.warning("Bạn chưa có Folder nào. Hãy tạo Folder trong tab 'Quản lý Ngân hàng'.")
+                    if st.button("Tạo đề ngay không lưu"):
+                        current_questions = generate_test(subj, grd, t_type, ratio, num_q, custom_db=st.session_state['temp_ai_qs'])
+
+        elif source == "Folder cá nhân":
+            folders = db.get_folders()
+            if folders:
+                f_names = [f['name'] for f in folders]
+                sel_f = st.selectbox("Chọn Folder nguồn:", f_names)
+                if st.button("🚀 Tạo đề từ Folder"):
+                    f_id = next(f['id'] for f in folders if f['name'] == sel_f)
+                    folder_db = db.get_questions_from_folder(f_id)
+                    if folder_db['Multiple Choice'] or folder_db['Essay']:
+                        current_questions = generate_test(subj, grd, t_type, ratio, num_q, custom_db=folder_db)
+                    else:
+                        st.error("Folder này chưa có câu hỏi nào!")
+            else:
+                st.info("Hãy tạo folder và thêm câu hỏi từ AI trước.")
 
         if current_questions:
             st.session_state['current_questions'] = current_questions
@@ -365,12 +420,37 @@ else:
                     title = f"Đề thi {info['subj']} - {info['grd']}"
                     t_id = db.save_test(title, info['subj'], info['grd'], q, info['dur'])
                     # Generate link
-                    share_url = f"https://share.streamlit.io/USER/REPO/main/app.py?test_id={t_id}" # Placeholder
+                    base_url = "http://localhost:8501" # Default for local
+                    full_link = f"{base_url}/?test_id={t_id}"
+                    
                     st.success("Đã lưu đề thi lên hệ thống!")
-                    st.write("**Mã đề thi:**")
+                    st.write("**Mã đề thi (Test ID):**")
                     st.code(t_id)
-                    st.info("Link thi (dự kiến):")
-                    st.code(f"?test_id={t_id}")
+                    st.write("**Đường link chia sẻ cho học sinh:**")
+                    st.code(full_link)
+                    st.info("💡 Lưu ý: Khi đưa lên mạng, hãy thay 'localhost:8501' bằng địa chỉ trang web của bạn.")
+
+    with tab_bank_mgmt:
+        st.subheader("📁 Quản lý Thư mục Câu hỏi")
+        with st.form("new_folder"):
+            f_name = st.text_input("Tên Folder mới (VD: Ôn tập Chương 1):")
+            f_note = st.text_input("Ghi chú:")
+            if st.form_submit_button("Tạo Folder"):
+                if f_name:
+                    db.create_folder(f_name, f_note)
+                    st.success(f"Đã tạo folder {f_name}")
+                    st.rerun()
+        
+        st.divider()
+        folders = db.get_folders()
+        if not folders:
+            st.info("Chưa có folder nào. Hãy tạo folder đầu tiên ở trên!")
+        for f in folders:
+            with st.expander(f"📂 {f['name']} ({f['note']})"):
+                qs = db.get_questions_from_folder(f['id'])
+                st.write(f"Tổng số: {len(qs['Multiple Choice'])} câu trắc nghiệm, {len(qs['Essay'])} câu tự luận")
+                if st.button("Xem chi tiết", key=f"view_{f['id']}"):
+                    st.json(qs)
 
     with tab_results:
         st.subheader("Danh sách kết quả học sinh")
