@@ -4,3 +4,6 @@ requests
 python-docx
 pdfplumber
 google-generativeai
+beautifulsoup4
+youtube-transcript-api
+pillow
