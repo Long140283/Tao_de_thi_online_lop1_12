@@ -474,30 +474,59 @@ else:
             st.divider()
             
             for res in results:
-                with st.expander(f"👤 {res['student_name']} - {res['grade']} - {res['score']:.2f}/{res['total_q']}"):
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.write(f"📌 **Mã đề:** `{res['test_id']}`")
-                        st.write(f"📝 **Tên đề:** {res['test_title']}")
-                    with c2:
-                        st.write(f"⏰ **Thời gian:** {res['submitted_at']}")
+                # Cache test info to show question details
+                test_info = db.get_test(res['test_id'])
+                
+                # Use columns for the data row to match headers
+                c_n, c_l, c_s, c_d = st.columns([2, 1, 1, 2])
+                c_n.write(f"👤 **{res['student_name']}**")
+                c_l.write(res['grade'])
+                c_s.write(f"🎯 {res['score']:.2f}/{res['total_q']}")
+                c_d.write(f"⏰ {res['submitted_at'][:16]}") # Shortened date
+                
+                with st.expander("Chi tiết bài làm & Chấm điểm"):
+                    st.write(f"📌 **Mã đề:** `{res['test_id']}` | **Tên đề:** {res['test_title']}")
+                    st.divider()
+                    st.write("### 📝 Chi tiết bài làm")
                     
-                    st.write("---")
-                    st.json(res['answers'])
+                    if test_info:
+                        mc_qs = test_info['questions'].get('mc', [])
+                        for i, q in enumerate(mc_qs):
+                            ans = res['answers'].get(f"mc_{i}")
+                            is_correct = (ans == q['answer'])
+                            icon = "✅" if is_correct else "❌"
+                            color = "green" if is_correct else "red"
+                            st.markdown(f"**Câu {i+1} (Trắc nghiệm):** {q['question']}")
+                            st.markdown(f"- {icon} Lựa chọn của em: <span style='color:{color};'>{ans}</span>", unsafe_allow_html=True)
+                            if not is_correct:
+                                st.markdown(f"- 🎯 Đáp án đúng: **{q['answer']}**")
+                        
+                        es_qs = test_info['questions'].get('es', [])
+                        for i, q in enumerate(es_qs):
+                            ans = res['answers'].get(f"es_{i}")
+                            st.markdown(f"**Câu {len(mc_qs)+i+1} (Tự luận):** {q['question']}")
+                            st.info(f"📄 Bài làm: {ans if ans else 'Chưa làm'}")
+                            st.write(f"💡 Gợi ý đáp án: {q['answer']}")
+                    else:
+                        st.json(res['answers'])
                     
+                    st.divider()
                     if st.button(f"🤖 Chấm điểm Tự luận AI", key=f"ai_res_{res['id']}"):
                         with st.spinner("AI đang chấm bài..."):
-                            test_info = db.get_test(res['test_id'])
                             total_ai_score = res['score']
+                            st.write("#### 🤖 Kết quả chấm điểm từ AI:")
                             for i, q in enumerate(test_info['questions']['es']):
                                 ans = res['answers'].get(f"es_{i}")
                                 if ans:
                                     res_ai = ai_grade_essay(q['question'], ans, q['answer'])
-                                    st.info(f"**Câu {i+1} (AI):** {res_ai['score']}đ - {res_ai['comment']}")
+                                    st.success(f"**Câu {len(mc_qs)+i+1}:** {res_ai['score']}đ")
+                                    st.write(f"💬 Nhận xét: {res_ai['comment']}")
                                     total_ai_score += res_ai['score']
+                            
                             db.update_submission_score(res['id'], total_ai_score)
-                            st.success(f"Đã cập nhật điểm: {total_ai_score:.2f}")
-                            st.rerun()
+                            st.info(f"👉 Điểm tổng mới: {total_ai_score:.2f}")
+                            if st.button("Xác nhận & Tải lại trang"): st.rerun()
+                st.divider()
         else:
             st.info("Chưa có học sinh nào nộp bài.")
 
