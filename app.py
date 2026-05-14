@@ -175,21 +175,67 @@ def extract_text_from_url(url):
     except Exception as e:
         return f"Lỗi trích xuất link: {str(e)}"
 
-def get_best_model(api_key):
-    genai.configure(api_key=api_key)
-    # List of models to try in order of preference
-    for m_name in ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]:
+def get_best_model(api_key, vision_required=False):
+    try:
+        genai.configure(api_key=api_key)
+        
+        # Try to list models to see what's available for this key
+        available = []
         try:
-            model = genai.GenerativeModel(m_name)
-            # Try a very small test call to verify availability
-            return model
+            for m in genai.list_models():
+                if "generateContent" in m.supported_generation_methods:
+                    available.append(m.name)
         except:
-            continue
-    return genai.GenerativeModel("gemini-pro") # Final fallback
+            # Fallback if list_models fails (e.g. permission issues)
+            available = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-pro"]
+
+        # Preferred models in order
+        if vision_required:
+            preferred = [
+                "models/gemini-3.1-flash",
+                "models/gemini-3-flash-preview",
+                "models/gemini-2.5-flash",
+                "models/gemini-2.0-flash",
+                "models/gemini-1.5-flash",
+                "models/gemini-flash-latest",
+                "models/gemini-1.5-pro",
+                "models/gemini-pro-vision"
+            ]
+        else:
+            preferred = [
+                "models/gemini-3.1-flash",
+                "models/gemini-3-pro",
+                "models/gemini-2.5-flash",
+                "models/gemini-2.0-flash",
+                "models/gemini-1.5-flash",
+                "models/gemini-flash-latest",
+                "models/gemini-pro"
+            ]
+        
+        for p in preferred:
+            if p in available:
+                return genai.GenerativeModel(p)
+            # Try without models/ prefix just in case
+            p_short = p.replace("models/", "")
+            if p_short in available:
+                return genai.GenerativeModel(p_short)
+                
+        # Final fallback to whatever is available and supports generation
+        if available:
+            return genai.GenerativeModel(available[0])
+            
+        return genai.GenerativeModel("gemini-1.5-flash") # Hard fallback
+    except Exception as e:
+        st.error(f"Lỗi cấu hình AI: {str(e)}")
+        return None
 
 def ai_process_questions(input_data, api_key, num_q):
     try:
-        model = get_best_model(api_key)
+        # Determine if input is image (vision required)
+        is_image = isinstance(input_data, Image.Image)
+        model = get_best_model(api_key, vision_required=is_image)
+        if not model: return None
+        
         prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'mc': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'es': [{{'question': '...', 'answer': '...'}}]}}"
         
         response = model.generate_content([prompt, input_data])
@@ -203,7 +249,9 @@ def ai_process_questions(input_data, api_key, num_q):
 
 def ai_grade_essay(question, student_answer, reference_answer):
     try:
-        model = get_best_model(GEMINI_API_KEY)
+        model = get_best_model(GEMINI_API_KEY, vision_required=False)
+        if not model: return {"score": 0, "comment": "Không thể cấu hình AI."}
+        
         prompt = f"Câu hỏi: {question}\nĐáp án mẫu: {reference_answer}\nBài làm học sinh: {student_answer}\n\nHãy chấm điểm bài làm này trên thang điểm 10. Trả về JSON: {{'score': float, 'comment': string}}"
         response = model.generate_content(prompt)
         content = response.text.strip().replace("```json", "").replace("```", "")
