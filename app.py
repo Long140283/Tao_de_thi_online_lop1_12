@@ -161,10 +161,19 @@ def extract_text_from_url(url):
                 video_id = url.split("/")[-1]
             
             try:
-                transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['vi', 'en'])
+                # Try fetching Vietnamese first, then English, then any
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                try:
+                    transcript = transcript_list.find_transcript(['vi']).fetch()
+                except:
+                    try:
+                        transcript = transcript_list.find_transcript(['en']).fetch()
+                    except:
+                        transcript = transcript_list.find_generated_transcript(['vi', 'en']).fetch()
+                
                 return " ".join([t['text'] for t in transcript])
-            except:
-                return "Không tìm thấy phụ đề cho video này. Vui lòng chọn video có phụ đề."
+            except Exception as e:
+                return f"Không tìm thấy phụ đề cho video này: {str(e)}. Vui lòng chọn video có phụ đề hoặc bản ghi tự động."
         else:
             headers = {"User-Agent": "Mozilla/5.0"}
             response = requests.get(url, headers=headers, timeout=10)
@@ -236,7 +245,23 @@ def ai_process_questions(input_data, api_key, num_q):
         model = get_best_model(api_key, vision_required=is_image)
         if not model: return None
         
-        prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'Multiple Choice': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'Essay': [{{'question': '...', 'answer': '...'}}]}}"
+        prompt = f"""
+        Nhiệm vụ: Dựa trên nội dung bài học (văn bản hoặc hình ảnh) được cung cấp, hãy tạo ra một bộ đề thi chất lượng.
+        Yêu cầu:
+        1. Tạo đúng {num_q} câu hỏi trắc nghiệm (Multiple Choice) có 4 lựa chọn, kèm đáp án đúng.
+        2. Tạo đúng 2 câu hỏi tự luận (Essay) kèm gợi ý đáp án.
+        3. Nội dung câu hỏi phải bám sát kiến thức trong tài liệu cung cấp.
+        
+        Định dạng trả về: JSON duy nhất với cấu trúc:
+        {{
+            "Multiple Choice": [
+                {{"question": "...", "options": ["...", "...", "...", "..."], "answer": "..."}}
+            ],
+            "Essay": [
+                {{"question": "...", "answer": "..."}}
+            ]
+        }}
+        """
         
         response = model.generate_content([prompt, input_data])
         content = response.text.strip().replace("```json", "").replace("```", "")
