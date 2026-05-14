@@ -236,14 +236,21 @@ def ai_process_questions(input_data, api_key, num_q):
         model = get_best_model(api_key, vision_required=is_image)
         if not model: return None
         
-        prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'mc': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'es': [{{'question': '...', 'answer': '...'}}]}}"
+        prompt = f"Phân tích dữ liệu (văn bản hoặc hình ảnh) này và bóc tách đúng {num_q} câu trắc nghiệm và 2 câu tự luận. Trả về JSON duy nhất với cấu trúc: {{'Multiple Choice': [{{'question': '...', 'options': ['...', '...', '...', '...'], 'answer': '...'}}], 'Essay': [{{'question': '...', 'answer': '...'}}]}}"
         
         response = model.generate_content([prompt, input_data])
         content = response.text.strip().replace("```json", "").replace("```", "")
         if "{" not in content: # Handle non-json response
             st.error("AI không trả về đúng định dạng JSON. Thử lại sau.")
             return None
-        return json.loads(content[content.find("{"):content.rfind("}")+1])
+        
+        raw_data = json.loads(content[content.find("{"):content.rfind("}")+1])
+        # Normalize keys just in case
+        normalized = {
+            "Multiple Choice": raw_data.get("Multiple Choice", raw_data.get("mc", [])),
+            "Essay": raw_data.get("Essay", raw_data.get("es", []))
+        }
+        return normalized
     except Exception as e:
         st.error(f"Lỗi AI: {str(e)}"); return None
 
@@ -261,7 +268,10 @@ def ai_grade_essay(question, student_answer, reference_answer):
 
 def generate_test(subject, grade, test_type, mc_ratio, total_q, custom_db=None):
     db_source = custom_db if custom_db else QUESTIONS_DB[subject][grade]
-    mc_pool, essay_pool = db_source["Multiple Choice"], db_source["Essay"]
+    
+    # Try multiple key variants for resilience
+    mc_pool = db_source.get("Multiple Choice", db_source.get("mc", []))
+    essay_pool = db_source.get("Essay", db_source.get("es", []))
     
     if test_type == "Trắc nghiệm":
         num_mc_q, num_essay_q = total_q, 0
