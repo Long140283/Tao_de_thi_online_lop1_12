@@ -695,9 +695,13 @@ else:
         pdfs = sorted(glob.glob("exports/*.pdf"), key=os.path.getmtime, reverse=True)
         for f in pdfs:
             n = os.path.basename(f)
-            col_i, col_d = st.columns([3, 1])
+            col_i, col_dl, col_del = st.columns([3, 1, 1])
             with col_i: st.write(f"📄 {n}")
-            with col_d:
-                with open(f, "rb") as rb: st.download_button("Tải lại", rb, n, "application/pdf", key=f"h_{n}")
+            with col_dl:
+                with open(f, "rb") as rb: st.download_button("Tải lại", rb, n, "application/pdf", key=f"dl_{n}")
+            with col_del:
+                if st.button("🗑️ Xóa", key=f"del_pdf_{n}"):
+                    os.remove(f)
+                    st.rerun()
 
 st.markdown("<div style='text-align:center; padding:20px; color:gray;'>Phát triển bởi Hệ thống Thi Online | © 2024</div>", unsafe_allow_html=True)
