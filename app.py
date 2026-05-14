@@ -680,7 +680,12 @@ else:
                             
                             db.update_submission_score(res['id'], total_ai_score)
                             st.info(f"👉 Điểm tổng mới: {total_ai_score:.2f}")
-                            if st.button("Xác nhận & Tải lại trang"): st.rerun()
+                            if st.button("Xác nhận & Tải lại trang", key=f"reload_{res['id']}"): st.rerun()
+                    
+                    if st.button(f"🗑️ Xóa kết quả này", key=f"del_res_{res['id']}"):
+                        db.delete_submission(res['id'])
+                        st.success("Đã xóa kết quả thành công!")
+                        st.rerun()
                 st.divider()
         else:
             st.info("Chưa có học sinh nào nộp bài.")

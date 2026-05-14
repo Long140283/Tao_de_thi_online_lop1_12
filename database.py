@@ -171,4 +171,11 @@ def delete_folder(folder_id):
     conn.commit()
     conn.close()
 
+def delete_submission(submission_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM submissions WHERE id = ?", (submission_id,))
+    conn.commit()
+    conn.close()
+
 init_db()
