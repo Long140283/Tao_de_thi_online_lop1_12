@@ -66,7 +66,8 @@ st.markdown("""
 
 FONT_PATH = "Roboto-Regular.ttf"
 EXPORT_DIR = "exports"
-GEMINI_API_KEY = "AIzaSyB6qQbHQ5IvN0sjfhULX9_9v1JbqT3w6X0"
+# Load API Key from Secrets (Streamlit Cloud)
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 if not os.path.exists(EXPORT_DIR): os.makedirs(EXPORT_DIR)
 if os.path.exists(FONT_PATH):
