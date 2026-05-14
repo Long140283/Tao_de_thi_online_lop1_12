@@ -194,9 +194,10 @@ def get_best_model(api_key, vision_required=False):
             for m in genai.list_models():
                 if "generateContent" in m.supported_generation_methods:
                     available.append(m.name)
-        except:
-            # Fallback if list_models fails (e.g. permission issues)
-            available = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-pro"]
+        except Exception as list_err:
+            # If list_models fails, don't hardcode 1.5-flash if it was causing 404
+            st.warning(f"Không thể liệt kê model: {str(list_err)}. Đang thử dùng các model mặc định...")
+            available = ["models/gemini-2.0-flash", "models/gemini-pro", "models/gemini-1.5-flash"]
 
         # Preferred models in order
         if vision_required:
@@ -233,7 +234,7 @@ def get_best_model(api_key, vision_required=False):
         if available:
             return genai.GenerativeModel(available[0])
             
-        return genai.GenerativeModel("gemini-1.5-flash") # Hard fallback
+        return genai.GenerativeModel("gemini-pro") # Safer fallback
     except Exception as e:
         st.error(f"Lỗi cấu hình AI: {str(e)}")
         return None
