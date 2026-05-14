@@ -597,8 +597,15 @@ else:
             with st.expander(f"📂 {f['name']} ({f['note']})"):
                 qs = db.get_questions_from_folder(f['id'])
                 st.write(f"Tổng số: {len(qs['Multiple Choice'])} câu trắc nghiệm, {len(qs['Essay'])} câu tự luận")
-                if st.button("Xem chi tiết", key=f"view_{f['id']}"):
-                    st.json(qs)
+                col_v, col_d = st.columns([1, 1])
+                with col_v:
+                    if st.button("Xem chi tiết", key=f"view_{f['id']}"):
+                        st.json(qs)
+                with col_d:
+                    if st.button("🗑️ Xóa Folder", key=f"del_{f['id']}"):
+                        db.delete_folder(f['id'])
+                        st.success(f"Đã xóa folder {f['name']}")
+                        st.rerun()
 
     with tab_results:
         st.subheader("📊 Danh sách Kết quả Học sinh")

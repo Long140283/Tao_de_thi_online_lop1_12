@@ -161,4 +161,14 @@ def update_submission_score(submission_id, new_score):
     conn.commit()
     conn.close()
 
+def delete_folder(folder_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Delete associated questions first
+    c.execute("DELETE FROM saved_questions WHERE folder_id = ?", (folder_id,))
+    # Delete folder
+    c.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+    conn.commit()
+    conn.close()
+
 init_db()
