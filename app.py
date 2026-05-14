@@ -78,7 +78,13 @@ else: PDF_FONT = "Helvetica"
 # --- REAL QUESTIONS DATABASE ---
 GRADES = [f"Lớp {i}" for i in range(1, 13)]
 SEMESTERS = ["Học kỳ 1", "Học kỳ 2"]
-SUBJECTS = ["Tiếng Anh", "Toán", "Ngữ văn"]
+SUBJECTS = [
+    "Toán", "Tiếng Anh", "Ngữ văn", 
+    "Vật lý", "Hóa học", "Sinh học", 
+    "Lịch sử", "Địa lý", "Giáo dục công dân",
+    "Tin học", "Công nghệ", "Khoa học tự nhiên",
+    "Lịch sử & Địa lý", "Âm nhạc", "Mỹ thuật"
+]
 
 def get_real_questions(subject, grade_idx):
     if subject == "Tiếng Anh":
@@ -120,23 +126,16 @@ def get_real_questions(subject, grade_idx):
                 {"question": "Tính diện tích hình thang có đáy lớn 10cm, đáy nhỏ 6cm và chiều cao 5cm.", "answer": "S = (10+6)*5/2 = 40cm2."}
             ]
         }
-    else: # Ngữ văn
+    else: 
+        # Default questions for other subjects (or dynamically generated)
         return {
             "Multiple Choice": [
-                {"question": "Tác giả của tác phẩm 'Truyện Kiều' là ai?", "options": ["Nguyễn Khuyến", "Nguyễn Du", "Nguyễn Trãi", "Chu Văn An"], "answer": "Nguyễn Du"},
-                {"question": "Câu 'Lá ơi! Hãy về với đất' sử dụng biện pháp nghệ thuật gì?", "options": ["So sánh", "Ẩn dụ", "Nhân hóa", "Hoán dụ"], "answer": "Nhân hóa"},
-                {"question": "Tác phẩm 'Lão Hạc' của Nam Cao thuộc thể loại gì?", "options": ["Tiểu thuyết", "Truyện ngắn", "Tùy bút", "Hồi ký"], "answer": "Truyện ngắn"},
-                {"question": "Nhân vật chính trong truyện 'Dế Mèn phiêu lưu ký' là ai?", "options": ["Dế Choắt", "Dế Mèn", "Chị Cốc", "Dế Trũi"], "answer": "Dế Mèn"},
-                {"question": "Sông Hương chảy qua thành phố nào của nước ta?", "options": ["Hà Nội", "Huế", "Đà Nẵng", "Cần Thơ"], "answer": "Huế"},
-                {"question": "Từ nào sau đây viết đúng chính tả?", "options": ["Xắp sếp", "Sắp sếp", "Sắp xếp", "Xắp xếp"], "answer": "Sắp xếp"},
-                {"question": "Thành ngữ 'Học đi đôi với hành' nhấn mạnh điều gì?", "options": ["Chỉ học lý thuyết", "Chỉ làm thực tế", "Học phải áp dụng", "Không cần học"], "answer": "Học phải áp dụng"},
-                {"question": "Ai là người được mệnh danh là 'Tiên thơ'?", "options": ["Lý Bạch", "Đỗ Phủ", "Bạch Cư Dị", "Vương Duy"], "answer": "Lý Bạch"},
-                {"question": "Tác phẩm 'Tắt đèn' của tác giả nào?", "options": ["Nam Cao", "Ngô Tất Tố", "Vũ Trọng Phụng", "Nguyên Hồng"], "answer": "Ngô Tất Tố"},
-                {"question": "Câu 'Ôi! Đẹp quá!' thuộc kiểu câu gì?", "options": ["Câu kể", "Câu hỏi", "Câu cảm", "Câu cầu khiến"], "answer": "Câu cảm"}
+                {"question": f"Khái niệm cơ bản của môn {subject} là gì?", "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"], "answer": "Đáp án A"},
+                {"question": f"Tầm quan trọng của {subject} trong đời sống?", "options": ["Rất quan trọng", "Bình thường", "Không quan trọng", "Tùy trường hợp"], "answer": "Rất quan trọng"}
             ],
             "Essay": [
-                {"question": "Phân tích nhân vật Lão Hạc trong truyện ngắn cùng tên của Nam Cao.", "answer": "Lòng tự trọng, tình thương con, số phận bi thảm của người nông dân."},
-                {"question": "Viết đoạn văn ngắn nêu cảm nhận của em về tình mẫu tử.", "answer": "Sự hy sinh vô điều kiện, tình yêu thương bao la của mẹ."}
+                {"question": f"Em hãy trình bày hiểu biết của mình về một chủ đề tự chọn trong môn {subject}.", "answer": "Học sinh tự trình bày kiến thức."},
+                {"question": f"Tại sao chúng ta cần học môn {subject}?", "answer": "Để mở rộng kiến thức và kỹ năng."}
             ]
         }
 
