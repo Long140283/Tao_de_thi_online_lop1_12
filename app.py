@@ -240,9 +240,25 @@ def get_best_model(api_key, vision_required=False):
         st.error(f"Lỗi cấu hình AI: {str(e)}")
         return None
 
+def get_generation_config():
+    return {
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+        "response_mime_type": "application/json",
+    }
+
+def get_safety_settings():
+    return [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+
 def ai_process_questions(input_data, api_key, num_q):
     try:
-        # Determine if input is image (vision required)
         is_image = isinstance(input_data, Image.Image)
         model = get_best_model(api_key, vision_required=is_image)
         if not model: return None
@@ -254,7 +270,7 @@ def ai_process_questions(input_data, api_key, num_q):
         2. Tạo đúng 2 câu hỏi tự luận (Essay) kèm gợi ý đáp án.
         3. Nội dung câu hỏi phải bám sát kiến thức trong tài liệu cung cấp.
         
-        Định dạng trả về: JSON duy nhất với cấu trúc:
+        Trả về kết quả theo cấu trúc JSON:
         {{
             "Multiple Choice": [
                 {{"question": "...", "options": ["...", "...", "...", "..."], "answer": "..."}}
@@ -265,19 +281,17 @@ def ai_process_questions(input_data, api_key, num_q):
         }}
         """
         
-        response = model.generate_content([prompt, input_data])
-        content = response.text.strip().replace("```json", "").replace("```", "")
-        if "{" not in content: # Handle non-json response
-            st.error("AI không trả về đúng định dạng JSON. Thử lại sau.")
-            return None
+        response = model.generate_content(
+            [prompt, input_data],
+            generation_config=get_generation_config(),
+            safety_settings=get_safety_settings()
+        )
         
-        raw_data = json.loads(content[content.find("{"):content.rfind("}")+1])
-        # Normalize keys just in case
-        normalized = {
-            "Multiple Choice": raw_data.get("Multiple Choice", raw_data.get("mc", [])),
-            "Essay": raw_data.get("Essay", raw_data.get("es", []))
-        }
-        return normalized
+        if not response.text:
+            st.error("AI không thể tạo nội dung cho tài liệu này (có thể do vi phạm chính sách nội dung).")
+            return None
+            
+        return json.loads(response.text)
     except Exception as e:
         st.error(f"Lỗi AI: {str(e)}"); return None
 
@@ -287,7 +301,13 @@ def ai_grade_essay(question, student_answer, reference_answer):
         if not model: return {"score": 0, "comment": "Không thể cấu hình AI."}
         
         prompt = f"Câu hỏi: {question}\nĐáp án mẫu: {reference_answer}\nBài làm học sinh: {student_answer}\n\nHãy chấm điểm bài làm này trên thang điểm 10. Trả về JSON: {{'score': float, 'comment': string}}"
-        response = model.generate_content(prompt)
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=get_generation_config(),
+            safety_settings=get_safety_settings()
+        )
+        return json.loads(response.text)
         content = response.text.strip().replace("```json", "").replace("```", "")
         return json.loads(content[content.find("{"):content.rfind("}")+1])
     except:
